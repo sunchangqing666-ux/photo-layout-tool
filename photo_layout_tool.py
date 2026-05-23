@@ -187,7 +187,7 @@ def load_printers():
 class PhotoLayoutTool(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title(f"{APP_NAME} v{APP_VERSION}")
+        self.title(f"{APP_NAME} v{APP_VERSION}  @sccq  {REPO_URL}")
         if ICON_PATH.exists():
             try:
                 self.iconbitmap(str(ICON_PATH))
@@ -584,17 +584,6 @@ class PhotoLayoutTool(tk.Tk):
             pady=8,
         )
         self.topmost_button.pack(side=tk.RIGHT)
-        self._solid_button(
-            title_row,
-            "开源地址",
-            self.open_project_home,
-            bg=NEUTRAL,
-            fg="#334155",
-            hover=NEUTRAL_HOVER,
-            active_fg="#0F172A",
-            padx=14,
-            pady=8,
-        ).pack(side=tk.RIGHT, padx=(0, 10))
         self._solid_button(
             title_row,
             "清除",
