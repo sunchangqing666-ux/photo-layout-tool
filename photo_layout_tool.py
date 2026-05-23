@@ -3,6 +3,7 @@ import math
 import os
 import subprocess
 import sys
+import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 import tkinter as tk
@@ -11,6 +12,8 @@ from PIL import Image, ImageDraw, ImageOps, ImageTk
 
 
 APP_NAME = "证件照排版工具"
+APP_VERSION = "1.1"
+REPO_URL = "https://github.com/sunchangqing666-ux/photo-layout-tool"
 BASE_DIR = Path(__file__).resolve().parent
 ICON_PATH = BASE_DIR / "assets" / "app.ico"
 LOGO_PATH = BASE_DIR / "assets" / "logo.png"
@@ -184,7 +187,7 @@ def load_printers():
 class PhotoLayoutTool(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title(APP_NAME)
+        self.title(f"{APP_NAME} v{APP_VERSION}")
         if ICON_PATH.exists():
             try:
                 self.iconbitmap(str(ICON_PATH))
@@ -410,7 +413,7 @@ class PhotoLayoutTool(tk.Tk):
         title_box.pack(side=tk.LEFT, fill=tk.X, expand=True)
         tk.Label(
             title_box,
-            text=APP_NAME,
+            text=f"{APP_NAME} v{APP_VERSION}",
             bg=PANEL_BG,
             fg=TEXT,
             font=("Microsoft YaHei UI", 17, "bold"),
@@ -467,6 +470,16 @@ class PhotoLayoutTool(tk.Tk):
         self._solid_button(self.left, "批量排版", self.choose_batch_files, bg=PRIMARY, hover=PRIMARY_HOVER).pack(
             fill=tk.X, pady=(0, 12)
         )
+
+        self._solid_button(
+            self.left,
+            "开源地址",
+            self.open_project_home,
+            bg=NEUTRAL,
+            fg="#334155",
+            hover=NEUTRAL_HOVER,
+            active_fg="#0F172A",
+        ).pack(fill=tk.X, pady=(0, 12))
 
         self.file_label = ttk.Label(self.left, text="", style="Muted.TLabel", wraplength=340)
         self.status_label = ttk.Label(self.left, text="", style="Muted.TLabel", wraplength=340)
@@ -1352,6 +1365,12 @@ class PhotoLayoutTool(tk.Tk):
                 )
                 return
             subprocess.Popen(["control.exe", "printers"], shell=False)
+        except Exception as exc:
+            messagebox.showerror("打开失败", str(exc))
+
+    def open_project_home(self):
+        try:
+            webbrowser.open(REPO_URL)
         except Exception as exc:
             messagebox.showerror("打开失败", str(exc))
 
