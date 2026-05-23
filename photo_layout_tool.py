@@ -212,7 +212,7 @@ class PhotoLayoutTool(tk.Tk):
 
         self.is_topmost = tk.BooleanVar(value=False)
         self.crop_lines = tk.BooleanVar(value=True)
-        self.auto_save = tk.BooleanVar(value=True)
+        self.auto_save = tk.BooleanVar(value=False)
         self.id_size_name = tk.StringVar(value="二寸")
         self.paper_name = tk.StringVar(value="5寸")
         self.custom_w = tk.StringVar(value=str(DEFAULT_CUSTOM_PAPER_MM[0]))
