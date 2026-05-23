@@ -915,6 +915,7 @@ class PhotoLayoutTool(tk.Tk):
 
     def _update_preview(self):
         if self.batch_items:
+            self._rerender_batch_items()
             self._show_batch_preview(self.preview_index)
             return
 
@@ -1147,6 +1148,30 @@ class PhotoLayoutTool(tk.Tk):
             self._show_batch_preview(self.preview_index)
 
         self._show_batch_result(processed, saved, failures, auto_save)
+
+    def _rerender_batch_items(self):
+        refreshed = []
+        failures = []
+        for item in self.batch_items:
+            source_path = item["source_path"]
+            try:
+                image = self._load_source_image(source_path)
+                layout, stats = self._generate_layout_for_image(image)
+                item = {
+                    **item,
+                    "layout_image": layout,
+                    "stats": stats,
+                    "image_size": (image.width, image.height),
+                }
+                refreshed.append(item)
+            except Exception as exc:
+                failures.append(f"{source_path.name}: {exc}")
+
+        if refreshed:
+            self.batch_items = refreshed
+            self.preview_index = min(self.preview_index, len(self.batch_items) - 1)
+        if failures:
+            self._set_status(f"部分批量图片重排失败：{failures[0]}")
 
     def _show_batch_preview(self, index):
         if not self.batch_items:
