@@ -413,10 +413,10 @@ class PhotoLayoutTool(tk.Tk):
         title_box.pack(side=tk.LEFT, fill=tk.X, expand=True)
         tk.Label(
             title_box,
-            text=f"{APP_NAME} v{APP_VERSION}",
+            text=APP_NAME,
             bg=PANEL_BG,
             fg=TEXT,
-            font=("Microsoft YaHei UI", 17, "bold"),
+            font=("Microsoft YaHei UI", 14, "bold"),
         ).pack(anchor=tk.W)
         self._gradient_strip(title_box, 68, 4).pack(anchor=tk.W, pady=(4, 4))
         ttk.Label(title_box, text="证件照自动排版与打印", style="Muted.TLabel").pack(anchor=tk.W)
@@ -470,16 +470,6 @@ class PhotoLayoutTool(tk.Tk):
         self._solid_button(self.left, "批量排版", self.choose_batch_files, bg=PRIMARY, hover=PRIMARY_HOVER).pack(
             fill=tk.X, pady=(0, 12)
         )
-
-        self._solid_button(
-            self.left,
-            "开源地址",
-            self.open_project_home,
-            bg=NEUTRAL,
-            fg="#334155",
-            hover=NEUTRAL_HOVER,
-            active_fg="#0F172A",
-        ).pack(fill=tk.X, pady=(0, 12))
 
         self.file_label = ttk.Label(self.left, text="", style="Muted.TLabel", wraplength=340)
         self.status_label = ttk.Label(self.left, text="", style="Muted.TLabel", wraplength=340)
@@ -594,6 +584,17 @@ class PhotoLayoutTool(tk.Tk):
             pady=8,
         )
         self.topmost_button.pack(side=tk.RIGHT)
+        self._solid_button(
+            title_row,
+            "开源地址",
+            self.open_project_home,
+            bg=NEUTRAL,
+            fg="#334155",
+            hover=NEUTRAL_HOVER,
+            active_fg="#0F172A",
+            padx=14,
+            pady=8,
+        ).pack(side=tk.RIGHT, padx=(0, 10))
         self._solid_button(
             title_row,
             "清除",
