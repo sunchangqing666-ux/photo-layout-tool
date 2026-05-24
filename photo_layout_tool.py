@@ -25,6 +25,7 @@ GAP_3MM = int(round(3 / 25.4 * DPI))
 BACKGROUND = (255, 255, 255)
 CROP_LINE = (77, 77, 77)
 DEFAULT_CUSTOM_PAPER_MM = (89, 127)
+DEFAULT_CUSTOM_ID_MM = (35, 49)
 SYSTEM_DEFAULT_PRINTER = "系统默认打印机"
 
 APP_BG = "#F6F0FF"
@@ -46,11 +47,16 @@ GLASS_SHADOW = "#D9D4F1"
 ID_SIZES = {
     "一寸": (25, 35),
     "二寸": (35, 49),
+    "大一寸": (33, 48),
+    "小二寸": (35, 45),
+    "自定义": DEFAULT_CUSTOM_ID_MM,
 }
 
 ID_PIXEL_SIZES = {
     "一寸": (295, 413),
     "二寸": (413, 578),
+    "大一寸": (390, 567),
+    "小二寸": (413, 531),
 }
 
 PAPER_SIZES = {
@@ -217,6 +223,8 @@ class PhotoLayoutTool(tk.Tk):
         self.gap_3mm = tk.BooleanVar(value=False)
         self.id_size_name = tk.StringVar(value="二寸")
         self.paper_name = tk.StringVar(value="5寸")
+        self.custom_id_w = tk.StringVar(value=str(DEFAULT_CUSTOM_ID_MM[0]))
+        self.custom_id_h = tk.StringVar(value=str(DEFAULT_CUSTOM_ID_MM[1]))
         self.custom_w = tk.StringVar(value=str(DEFAULT_CUSTOM_PAPER_MM[0]))
         self.custom_h = tk.StringVar(value=str(DEFAULT_CUSTOM_PAPER_MM[1]))
         self.printer_name = tk.StringVar(value="")
@@ -480,8 +488,23 @@ class PhotoLayoutTool(tk.Tk):
         self.id_button_frame = ttk.Frame(self.left)
         self.id_button_frame.pack(fill=tk.X, pady=(0, 12))
         self.id_buttons = {}
-        for name in ID_SIZES:
-            self.id_buttons[name] = self._pill_button(self.id_button_frame, name, lambda n=name: self._select_id_size(n))
+        for index, name in enumerate(ID_SIZES):
+            if index % 3 == 0:
+                id_row = ttk.Frame(self.id_button_frame)
+                id_row.pack(fill=tk.X, pady=(0, 8))
+            self.id_buttons[name] = self._pill_button(id_row, name, lambda n=name: self._select_id_size(n))
+
+        self.id_custom_frame = ttk.Frame(self.left)
+        self.id_custom_frame.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(self.id_custom_frame, text="宽").pack(side=tk.LEFT)
+        self.custom_id_w_entry = ttk.Entry(self.id_custom_frame, width=7, textvariable=self.custom_id_w)
+        self.custom_id_w_entry.pack(side=tk.LEFT, padx=(6, 8))
+        ttk.Label(self.id_custom_frame, text="mm   高").pack(side=tk.LEFT)
+        self.custom_id_h_entry = ttk.Entry(self.id_custom_frame, width=7, textvariable=self.custom_id_h)
+        self.custom_id_h_entry.pack(side=tk.LEFT, padx=(6, 8))
+        ttk.Label(self.id_custom_frame, text="mm").pack(side=tk.LEFT)
+        for var in (self.custom_id_w, self.custom_id_h):
+            var.trace_add("write", lambda *_args: self._update_preview())
 
         self._section("相纸设置")
         self.paper_button_frame = ttk.Frame(self.left)
@@ -885,9 +908,12 @@ class PhotoLayoutTool(tk.Tk):
             self._style_pill(button, selected=name == self.id_size_name.get())
         for name, button in self.paper_buttons.items():
             self._style_pill(button, selected=name == self.paper_name.get())
-        state = tk.NORMAL if self.paper_name.get() == "自定义" else tk.DISABLED
-        self.custom_w_entry.configure(state=state)
-        self.custom_h_entry.configure(state=state)
+        id_state = tk.NORMAL if self.id_size_name.get() == "自定义" else tk.DISABLED
+        self.custom_id_w_entry.configure(state=id_state)
+        self.custom_id_h_entry.configure(state=id_state)
+        paper_state = tk.NORMAL if self.paper_name.get() == "自定义" else tk.DISABLED
+        self.custom_w_entry.configure(state=paper_state)
+        self.custom_h_entry.configure(state=paper_state)
         self._refresh_switches()
 
     def _style_pill(self, button, selected=False):
@@ -923,6 +949,29 @@ class PhotoLayoutTool(tk.Tk):
             return PAPER_PIXEL_SIZES[self.paper_name.get()]
         return size_to_px(self._paper_size_mm())
 
+    def _id_size_mm(self):
+        if self.id_size_name.get() != "自定义":
+            return ID_SIZES[self.id_size_name.get()]
+        try:
+            width = float(self.custom_id_w.get())
+            height = float(self.custom_id_h.get())
+            if width < 5 or height < 5:
+                raise ValueError
+            return width, height
+        except Exception:
+            return DEFAULT_CUSTOM_ID_MM
+
+    def _id_size_px(self):
+        if self.id_size_name.get() in ID_PIXEL_SIZES:
+            return ID_PIXEL_SIZES[self.id_size_name.get()]
+        return size_to_px(self._id_size_mm())
+
+    def _id_size_label(self):
+        if self.id_size_name.get() != "自定义":
+            return self.id_size_name.get()
+        id_mm = self._id_size_mm()
+        return f"{id_mm[0]:g}x{id_mm[1]:g}mm"
+
     def _update_preview(self):
         if self.batch_items:
             self._rerender_batch_items()
@@ -952,10 +1001,9 @@ class PhotoLayoutTool(tk.Tk):
         return canvas, stats
 
     def _generate_layout_for_image(self, source_image):
-        id_name = self.id_size_name.get()
-        id_mm = ID_SIZES[id_name]
+        id_mm = self._id_size_mm()
         paper_mm = self._paper_size_mm()
-        photo_w, photo_h = ID_PIXEL_SIZES[id_name]
+        photo_w, photo_h = self._id_size_px()
         paper_w, paper_h = self._paper_size_px()
         gap = self._photo_gap_px()
 
@@ -1117,7 +1165,7 @@ class PhotoLayoutTool(tk.Tk):
             paper_mm = self._paper_size_mm()
             paper = f"{paper_mm[0]:g}x{paper_mm[1]:g}mm"
 
-        name = f"{stem}_{self.id_size_name.get()}_{paper}排版.jpg"
+        name = f"{stem}_{self._id_size_label()}_{paper}排版.jpg"
         path = base_dir / name
         index = 1
         while path.exists():
