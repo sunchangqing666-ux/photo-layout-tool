@@ -20,7 +20,8 @@ LOGO_PATH = BASE_DIR / "assets" / "logo.png"
 
 DPI = 300
 MARGIN = 30
-GAP = 0
+GAP_OFF = 0
+GAP_3MM = int(round(3 / 25.4 * DPI))
 BACKGROUND = (255, 255, 255)
 CROP_LINE = (77, 77, 77)
 DEFAULT_CUSTOM_PAPER_MM = (89, 127)
@@ -213,6 +214,7 @@ class PhotoLayoutTool(tk.Tk):
         self.is_topmost = tk.BooleanVar(value=False)
         self.crop_lines = tk.BooleanVar(value=True)
         self.auto_save = tk.BooleanVar(value=False)
+        self.gap_3mm = tk.BooleanVar(value=False)
         self.id_size_name = tk.StringVar(value="二寸")
         self.paper_name = tk.StringVar(value="5寸")
         self.custom_w = tk.StringVar(value=str(DEFAULT_CUSTOM_PAPER_MM[0]))
@@ -509,6 +511,13 @@ class PhotoLayoutTool(tk.Tk):
         self.crop_switch.pack(side=tk.RIGHT)
         crop_row.bind("<Button-1>", lambda _event: self._toggle_switch(self.crop_lines, self._update_preview))
 
+        gap_row = ttk.Frame(self.left)
+        gap_row.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(gap_row, text="照片间距 3mm").pack(side=tk.LEFT)
+        self.gap_switch = self._switch(gap_row, self.gap_3mm, self._update_preview)
+        self.gap_switch.pack(side=tk.RIGHT)
+        gap_row.bind("<Button-1>", lambda _event: self._toggle_switch(self.gap_3mm, self._update_preview))
+
         auto_row = ttk.Frame(self.left)
         auto_row.pack(fill=tk.X, pady=(0, 10))
         ttk.Label(auto_row, text="自动保存").pack(side=tk.LEFT)
@@ -701,6 +710,7 @@ class PhotoLayoutTool(tk.Tk):
 
     def _refresh_switches(self):
         self._draw_switch(self.crop_lines)
+        self._draw_switch(self.gap_3mm)
         self._draw_switch(self.auto_save)
 
     def _draw_switch(self, variable):
@@ -947,11 +957,12 @@ class PhotoLayoutTool(tk.Tk):
         paper_mm = self._paper_size_mm()
         photo_w, photo_h = ID_PIXEL_SIZES[id_name]
         paper_w, paper_h = self._paper_size_px()
+        gap = self._photo_gap_px()
 
         candidates = []
         for oriented_w, oriented_h, rotate in ((photo_w, photo_h, False), (photo_h, photo_w, True)):
-            cols = max(0, (paper_w - MARGIN * 2 + GAP) // (oriented_w + GAP))
-            rows = max(0, (paper_h - MARGIN * 2 + GAP) // (oriented_h + GAP))
+            cols = max(0, (paper_w - MARGIN * 2 + gap) // (oriented_w + gap))
+            rows = max(0, (paper_h - MARGIN * 2 + gap) // (oriented_h + gap))
             candidates.append((cols * rows, cols, rows, oriented_w, oriented_h, rotate))
         count, cols, rows, slot_w, slot_h, rotate = max(candidates, key=lambda item: item[0])
 
@@ -963,19 +974,19 @@ class PhotoLayoutTool(tk.Tk):
         if rotate:
             photo = photo.rotate(90, expand=True)
 
-        layout_w = cols * slot_w + max(0, cols - 1) * GAP
-        layout_h = rows * slot_h + max(0, rows - 1) * GAP
+        layout_w = cols * slot_w + max(0, cols - 1) * gap
+        layout_h = rows * slot_h + max(0, rows - 1) * gap
         start_x = int((paper_w - layout_w) / 2)
         start_y = int((paper_h - layout_h) / 2)
 
         for row in range(rows):
             for col in range(cols):
-                x = start_x + col * (slot_w + GAP)
-                y = start_y + row * (slot_h + GAP)
+                x = start_x + col * (slot_w + gap)
+                y = start_y + row * (slot_h + gap)
                 canvas.paste(photo, (x, y))
 
         if self.crop_lines.get():
-            self._draw_crop_lines(canvas, start_x, start_y, cols, rows, slot_w, slot_h)
+            self._draw_crop_lines(canvas, start_x, start_y, cols, rows, slot_w, slot_h, gap)
 
         stats = {
             "cols": cols,
@@ -985,9 +996,13 @@ class PhotoLayoutTool(tk.Tk):
             "id_mm": id_mm,
             "paper_px": (paper_w, paper_h),
             "photo_px": (slot_w, slot_h),
+            "gap_px": gap,
             "rotated": rotate,
         }
         return canvas, stats
+
+    def _photo_gap_px(self):
+        return GAP_3MM if self.gap_3mm.get() else GAP_OFF
 
     def _update_stats_label(self, stats, prefix=""):
         paper_mm = stats["paper_mm"]
@@ -999,13 +1014,13 @@ class PhotoLayoutTool(tk.Tk):
             )
         )
 
-    def _draw_crop_lines(self, canvas, start_x, start_y, cols, rows, slot_w, slot_h):
+    def _draw_crop_lines(self, canvas, start_x, start_y, cols, rows, slot_w, slot_h, gap):
         draw = ImageDraw.Draw(canvas)
         width, height = canvas.size
-        xs = [start_x + i * (slot_w + GAP) for i in range(cols)]
-        xs.append(start_x + cols * slot_w + max(0, cols - 1) * GAP)
-        ys = [start_y + i * (slot_h + GAP) for i in range(rows)]
-        ys.append(start_y + rows * slot_h + max(0, rows - 1) * GAP)
+        xs = [start_x + i * (slot_w + gap) for i in range(cols)]
+        xs.append(start_x + cols * slot_w + max(0, cols - 1) * gap)
+        ys = [start_y + i * (slot_h + gap) for i in range(rows)]
+        ys.append(start_y + rows * slot_h + max(0, rows - 1) * gap)
 
         for x in xs:
             self._dashed_line(draw, (x, 0), (x, height), fill=CROP_LINE)
