@@ -1,6 +1,6 @@
 ﻿#define MyAppName "PhotoLayoutTool"
-#define MyAppChineseName "证件照排版工具"
-#define MyAppVersion "1.1"
+#define MyAppChineseName "证件照自动排版系统"
+#define MyAppVersion "1.2"
 #define MyAppPublisher "Photo Layout Tool"
 #define MyAppExeName "PhotoLayoutTool.exe"
 

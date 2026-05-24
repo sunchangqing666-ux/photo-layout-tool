@@ -11,8 +11,8 @@ import tkinter as tk
 from PIL import Image, ImageDraw, ImageOps, ImageTk
 
 
-APP_NAME = "证件照排版工具"
-APP_VERSION = "1.1"
+APP_NAME = "证件照自动排版系统"
+APP_VERSION = "1.2"
 REPO_URL = "https://github.com/sunchangqing666-ux/photo-layout-tool"
 BASE_DIR = Path(__file__).resolve().parent
 ICON_PATH = BASE_DIR / "assets" / "app.ico"
