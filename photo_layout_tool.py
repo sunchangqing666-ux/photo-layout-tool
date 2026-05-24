@@ -1018,7 +1018,7 @@ class PhotoLayoutTool(tk.Tk):
             raise ValueError("当前相纸尺寸无法放下所选证件照。")
 
         canvas = Image.new("RGB", (paper_w, paper_h), BACKGROUND)
-        photo = ImageOps.fit(source_image, (photo_w, photo_h), method=Image.Resampling.LANCZOS)
+        photo = self._fit_photo_center_crop(source_image, (photo_w, photo_h))
         if rotate:
             photo = photo.rotate(90, expand=True)
 
@@ -1048,6 +1048,29 @@ class PhotoLayoutTool(tk.Tk):
             "rotated": rotate,
         }
         return canvas, stats
+
+    def _fit_photo_center_crop(self, image, target_size):
+        target_w, target_h = target_size
+        if target_w <= 0 or target_h <= 0:
+            raise ValueError("证件照尺寸无效。")
+
+        src = ImageOps.exif_transpose(image).convert("RGB")
+        src_w, src_h = src.size
+        if src_w <= 0 or src_h <= 0:
+            raise ValueError("图片尺寸无效。")
+
+        target_ratio = target_w / target_h
+        source_ratio = src_w / src_h
+        if source_ratio > target_ratio:
+            crop_w = max(1, min(src_w, int(round(src_h * target_ratio))))
+            left = max(0, (src_w - crop_w) // 2)
+            box = (left, 0, left + crop_w, src_h)
+        else:
+            crop_h = max(1, min(src_h, int(round(src_w / target_ratio))))
+            top = max(0, (src_h - crop_h) // 2)
+            box = (0, top, src_w, top + crop_h)
+
+        return src.crop(box).resize((target_w, target_h), Image.Resampling.LANCZOS)
 
     def _photo_gap_px(self):
         return GAP_3MM if self.gap_3mm.get() else GAP_OFF
