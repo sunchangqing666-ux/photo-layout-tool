@@ -43,6 +43,55 @@ NEUTRAL_HOVER = "#EEF2FF"
 PINK = "#EC4899"
 CYAN = "#38BDF8"
 GLASS_SHADOW = "#D9D4F1"
+UPLOAD_BG = "#F8F5FF"
+UPLOAD_BORDER = "#A78BFA"
+CHIP_ACTIVE_BG = "#EDE9FE"
+CHIP_ACTIVE_FG = "#6D28D9"
+BG_TOP = "#EAF8FF"
+BG_MIDDLE = "#F3E8FF"
+BG_BOTTOM = "#FFEAF4"
+BG_ORBS = ("#DFF4FF", "#F3D7FF", "#FFE0F0", "#E5EEFF")
+
+THEMES = {
+    "light": {
+        "APP_BG": "#F3F6FB",
+        "PANEL_BG": "#FFFFFF",
+        "PREVIEW_BG": "#F8FAFC",
+        "TEXT": "#172033",
+        "MUTED": "#64748B",
+        "BORDER": "#E6EBF2",
+        "NEUTRAL": "#EEF2F7",
+        "NEUTRAL_HOVER": "#E2E8F0",
+        "GLASS_SHADOW": "#DDE6F2",
+        "UPLOAD_BG": "#F8F5FF",
+        "UPLOAD_BORDER": "#A78BFA",
+        "CHIP_ACTIVE_BG": "#EDE9FE",
+        "CHIP_ACTIVE_FG": "#6D28D9",
+        "BG_TOP": "#EAF8FF",
+        "BG_MIDDLE": "#F3E8FF",
+        "BG_BOTTOM": "#FFEAF4",
+        "BG_ORBS": ("#DFF4FF", "#F3D7FF", "#FFE0F0", "#E5EEFF"),
+    },
+    "dark": {
+        "APP_BG": "#0B1020",
+        "PANEL_BG": "#121A2D",
+        "PREVIEW_BG": "#0F172A",
+        "TEXT": "#E5E7EB",
+        "MUTED": "#94A3B8",
+        "BORDER": "#263244",
+        "NEUTRAL": "#1E293B",
+        "NEUTRAL_HOVER": "#334155",
+        "GLASS_SHADOW": "#050816",
+        "UPLOAD_BG": "#151B31",
+        "UPLOAD_BORDER": "#7C3AED",
+        "CHIP_ACTIVE_BG": "#312E81",
+        "CHIP_ACTIVE_FG": "#EDE9FE",
+        "BG_TOP": "#101A33",
+        "BG_MIDDLE": "#1B1435",
+        "BG_BOTTOM": "#2A1430",
+        "BG_ORBS": ("#123152", "#31205A", "#512044", "#17223D"),
+    },
+}
 
 ID_SIZES = {
     "一寸": (25, 35),
@@ -114,6 +163,10 @@ class RoundedButton(tk.Canvas):
         self.hover_fg = active_fg if active_fg is not None else fg
         self.current_bg = bg
         self.current_fg = fg
+        self._draw()
+
+    def set_surface(self, color):
+        self.configure(bg=color)
         self._draw()
 
     def _set_hover(self, hovered):
@@ -216,11 +269,15 @@ class PhotoLayoutTool(tk.Tk):
         self.drop_after = None
         self.logo_photo = None
         self.switches = {}
+        self.solid_buttons = []
+        self.theme_buttons = {}
+        self.current_theme_name = None
 
         self.is_topmost = tk.BooleanVar(value=False)
         self.crop_lines = tk.BooleanVar(value=True)
         self.auto_save = tk.BooleanVar(value=False)
         self.gap_3mm = tk.BooleanVar(value=False)
+        self.appearance_mode = tk.StringVar(value="跟随系统")
         self.id_size_name = tk.StringVar(value="二寸")
         self.paper_name = tk.StringVar(value="5寸")
         self.custom_id_w = tk.StringVar(value=str(DEFAULT_CUSTOM_ID_MM[0]))
@@ -231,9 +288,11 @@ class PhotoLayoutTool(tk.Tk):
 
         self._setup_styles()
         self._build_ui()
+        self._apply_theme()
         self._setup_drag_drop()
         self._refresh_printers()
         self._update_preview()
+        self._schedule_system_theme_check()
 
     def _setup_styles(self):
         style = ttk.Style(self)
@@ -248,8 +307,9 @@ class PhotoLayoutTool(tk.Tk):
         style.configure("Title.TLabel", background=PANEL_BG, foreground=TEXT, font=("Microsoft YaHei UI", 18, "bold"))
         style.configure("Section.TLabel", background=PANEL_BG, foreground=TEXT, font=("Microsoft YaHei UI", 11, "bold"))
         style.configure("TButton", font=("Microsoft YaHei UI", 10), padding=(10, 7))
-        style.configure("TEntry", padding=(8, 4))
-        style.configure("TCombobox", padding=(8, 4))
+        style.configure("TEntry", padding=(8, 4), fieldbackground=PANEL_BG, foreground=TEXT)
+        style.configure("TCombobox", padding=(8, 4), fieldbackground=PANEL_BG, background=PANEL_BG, foreground=TEXT)
+        style.configure("Vertical.TScrollbar", background=NEUTRAL, troughcolor=PANEL_BG, bordercolor=BORDER, arrowcolor=MUTED)
         style.configure("TCheckbutton", background=PANEL_BG, foreground=TEXT, font=("Microsoft YaHei UI", 10))
         style.map("TCheckbutton", background=[("active", PANEL_BG)], foreground=[("active", TEXT)])
 
@@ -260,7 +320,9 @@ class PhotoLayoutTool(tk.Tk):
 
         self.left_shell = tk.Frame(self.bg_canvas, bg=PANEL_BG, highlightbackground=BORDER, highlightthickness=1)
         self.left_canvas = tk.Canvas(self.left_shell, bg=PANEL_BG, highlightthickness=0)
-        self.left_scrollbar = ttk.Scrollbar(self.left_shell, orient=tk.VERTICAL, command=self.left_canvas.yview)
+        self.left_scrollbar = ttk.Scrollbar(
+            self.left_shell, orient=tk.VERTICAL, command=self.left_canvas.yview, style="Vertical.TScrollbar"
+        )
         self.left_canvas.configure(yscrollcommand=self.left_scrollbar.set)
         self.left_scrollbar_visible = True
         self.left_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -356,9 +418,9 @@ class PhotoLayoutTool(tk.Tk):
         self.bg_canvas.itemconfigure(self.right_window, width=right_w, height=panel_h)
 
     def _draw_fast_background(self, width, height):
-        top = self._hex_to_rgb("#EAF8FF")
-        middle = self._hex_to_rgb("#F3E8FF")
-        bottom = self._hex_to_rgb("#FFEAF4")
+        top = self._hex_to_rgb(BG_TOP)
+        middle = self._hex_to_rgb(BG_MIDDLE)
+        bottom = self._hex_to_rgb(BG_BOTTOM)
         bands = 28
         band_h = max(1, math.ceil(height / bands))
 
@@ -379,7 +441,7 @@ class PhotoLayoutTool(tk.Tk):
             -height * 0.16,
             width * 0.34,
             height * 0.42,
-            fill="#DFF4FF",
+            fill=BG_ORBS[0],
             outline="",
             tags="bg",
         )
@@ -388,7 +450,7 @@ class PhotoLayoutTool(tk.Tk):
             -height * 0.2,
             width * 1.08,
             height * 0.46,
-            fill="#F3D7FF",
+            fill=BG_ORBS[1],
             outline="",
             tags="bg",
         )
@@ -397,7 +459,7 @@ class PhotoLayoutTool(tk.Tk):
             height * 0.58,
             width * 1.08,
             height * 1.14,
-            fill="#FFE0F0",
+            fill=BG_ORBS[2],
             outline="",
             tags="bg",
         )
@@ -406,7 +468,7 @@ class PhotoLayoutTool(tk.Tk):
             height * 0.72,
             width * 0.42,
             height * 1.12,
-            fill="#E5EEFF",
+            fill=BG_ORBS[3],
             outline="",
             tags="bg",
         )
@@ -417,24 +479,33 @@ class PhotoLayoutTool(tk.Tk):
         logo_row.pack(fill=tk.X, pady=(0, 12))
         self.logo_photo = self._load_logo_photo(46)
         if self.logo_photo:
-            tk.Label(logo_row, image=self.logo_photo, bg=PANEL_BG, bd=0).pack(side=tk.LEFT, padx=(0, 12))
+            self.logo_label = tk.Label(logo_row, image=self.logo_photo, bg=PANEL_BG, bd=0)
+            self.logo_label.pack(side=tk.LEFT, padx=(0, 12))
 
         title_box = ttk.Frame(logo_row)
         title_box.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        tk.Label(
+        self.title_label = tk.Label(
             title_box,
             text=APP_NAME,
             bg=PANEL_BG,
             fg=TEXT,
             font=("Microsoft YaHei UI", 14, "bold"),
-        ).pack(anchor=tk.W)
+        )
+        self.title_label.pack(anchor=tk.W)
         self._gradient_strip(title_box, 68, 4).pack(anchor=tk.W, pady=(4, 4))
         ttk.Label(title_box, text="证件照自动排版与打印", style="Muted.TLabel").pack(anchor=tk.W)
 
+        self._section("外观模式")
+        theme_row = ttk.Frame(self.left)
+        theme_row.pack(fill=tk.X, pady=(0, 12))
+        self.theme_buttons = {}
+        for name in ("浅色模式", "深色模式", "跟随系统"):
+            self.theme_buttons[name] = self._pill_button(theme_row, name, lambda n=name: self._select_appearance(n))
+
         self.upload_box = tk.Frame(
             self.left,
-            bg="#F8FBFF",
-            highlightbackground="#93C5FD",
+            bg=UPLOAD_BG,
+            highlightbackground=UPLOAD_BORDER,
             highlightthickness=1,
             height=132,
             cursor="hand2",
@@ -442,13 +513,13 @@ class PhotoLayoutTool(tk.Tk):
         self.upload_box.pack(fill=tk.X, pady=(0, 12))
         self.upload_box.pack_propagate(False)
         self.upload_box.bind("<Button-1>", lambda _event: self.choose_file())
-        self.upload_content = tk.Frame(self.upload_box, bg="#F8FBFF", cursor="hand2")
+        self.upload_content = tk.Frame(self.upload_box, bg=UPLOAD_BG, cursor="hand2")
         self.upload_content.pack(fill=tk.BOTH, expand=True)
         self.upload_content.bind("<Button-1>", lambda _event: self.choose_file())
         self.upload_icon = tk.Label(
             self.upload_content,
             text="+",
-            bg="#F8FBFF",
+            bg=UPLOAD_BG,
             fg=PRIMARY,
             font=("Microsoft YaHei UI", 28, "bold"),
             cursor="hand2",
@@ -457,7 +528,7 @@ class PhotoLayoutTool(tk.Tk):
         self.upload_title = tk.Label(
             self.upload_content,
             text="点击或拖拽上传证件照",
-            bg="#F8FBFF",
+            bg=UPLOAD_BG,
             fg=TEXT,
             font=("Microsoft YaHei UI", 10, "bold"),
             wraplength=260,
@@ -468,7 +539,7 @@ class PhotoLayoutTool(tk.Tk):
         self.upload_hint = tk.Label(
             self.upload_content,
             text="JPG / PNG / BMP / TIFF",
-            bg="#F8FBFF",
+            bg=UPLOAD_BG,
             fg=MUTED,
             font=("Microsoft YaHei UI", 9),
             cursor="hand2",
@@ -689,6 +760,119 @@ class PhotoLayoutTool(tk.Tk):
     def _rgb_to_hex(self, rgb):
         return "#{:02X}{:02X}{:02X}".format(*rgb)
 
+    def _resolved_theme_name(self):
+        mode = self.appearance_mode.get()
+        if mode == "深色模式":
+            return "dark"
+        if mode == "跟随系统" and self._system_prefers_dark():
+            return "dark"
+        return "light"
+
+    def _system_prefers_dark(self):
+        if not sys.platform.startswith("win"):
+            return False
+        try:
+            import winreg
+
+            with winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+            ) as key:
+                return winreg.QueryValueEx(key, "AppsUseLightTheme")[0] == 0
+        except Exception:
+            return False
+
+    def _schedule_system_theme_check(self):
+        if self.appearance_mode.get() == "跟随系统":
+            self._apply_theme()
+        self.after(5000, self._schedule_system_theme_check)
+
+    def _apply_theme(self, force=False):
+        global APP_BG, PANEL_BG, PREVIEW_BG, TEXT, MUTED, BORDER, NEUTRAL, NEUTRAL_HOVER
+        global GLASS_SHADOW, UPLOAD_BG, UPLOAD_BORDER, CHIP_ACTIVE_BG, CHIP_ACTIVE_FG
+        global BG_TOP, BG_MIDDLE, BG_BOTTOM, BG_ORBS
+
+        theme_name = self._resolved_theme_name()
+        if not force and theme_name == self.current_theme_name:
+            return
+
+        for key, value in THEMES[theme_name].items():
+            globals()[key] = value
+        self.current_theme_name = theme_name
+        self._setup_styles()
+        self.configure(bg=APP_BG)
+
+        for name in ("bg_canvas",):
+            widget = getattr(self, name, None)
+            if widget is not None:
+                widget.configure(bg=APP_BG)
+        for name in ("left_shell", "right_shell"):
+            widget = getattr(self, name, None)
+            if widget is not None:
+                widget.configure(bg=PANEL_BG, highlightbackground=BORDER)
+        for name in ("left_canvas",):
+            widget = getattr(self, name, None)
+            if widget is not None:
+                widget.configure(bg=PANEL_BG)
+        if hasattr(self, "preview_frame"):
+            self.preview_frame.configure(bg=PREVIEW_BG, highlightbackground=BORDER)
+        if hasattr(self, "preview_canvas"):
+            self.preview_canvas.configure(bg=PREVIEW_BG)
+        if hasattr(self, "upload_box"):
+            self.upload_box.configure(bg=UPLOAD_BG, highlightbackground=UPLOAD_BORDER)
+        if hasattr(self, "upload_content"):
+            self.upload_content.configure(bg=UPLOAD_BG)
+
+        for widget in self._all_widgets(self):
+            if isinstance(widget, RoundedButton):
+                widget.set_surface(PANEL_BG)
+            elif isinstance(widget, tk.Frame):
+                widget.configure(bg=PANEL_BG)
+            elif isinstance(widget, tk.Label):
+                widget.configure(bg=PANEL_BG, fg=TEXT)
+
+        for name in ("upload_content", "upload_box"):
+            widget = getattr(self, name, None)
+            if widget is not None:
+                widget.configure(bg=UPLOAD_BG)
+        if hasattr(self, "preview_frame"):
+            self.preview_frame.configure(bg=PREVIEW_BG, highlightbackground=BORDER)
+        if hasattr(self, "preview_canvas"):
+            self.preview_canvas.configure(bg=PREVIEW_BG)
+        if hasattr(self, "upload_icon"):
+            self.upload_icon.configure(bg=UPLOAD_BG, fg=PRIMARY)
+        if hasattr(self, "upload_title"):
+            self.upload_title.configure(bg=UPLOAD_BG, fg=TEXT)
+        if hasattr(self, "upload_hint"):
+            self.upload_hint.configure(bg=UPLOAD_BG, fg=MUTED)
+        if hasattr(self, "logo_label"):
+            self.logo_label.configure(bg=PANEL_BG)
+        if hasattr(self, "title_label"):
+            self.title_label.configure(bg=PANEL_BG, fg=TEXT)
+
+        for button in self.solid_buttons:
+            role = getattr(button, "theme_role", "primary")
+            if role == "success":
+                button.set_colors(SUCCESS, "#FFFFFF", SUCCESS_HOVER, "#FFFFFF")
+            elif role == "neutral":
+                button.set_colors(NEUTRAL, TEXT, NEUTRAL_HOVER, TEXT)
+            else:
+                button.set_colors(PRIMARY, "#FFFFFF", PRIMARY_HOVER, "#FFFFFF")
+            button.set_surface(PANEL_BG)
+
+        if hasattr(self, "topmost_button"):
+            self._style_topmost_button()
+        if hasattr(self, "id_buttons"):
+            self._refresh_toggle_buttons()
+
+        if hasattr(self, "bg_canvas"):
+            width = self.bg_canvas.winfo_width()
+            height = self.bg_canvas.winfo_height()
+            if width > 1 and height > 1:
+                self._layout_glass_panels(type("Event", (), {"width": width, "height": height})())
+        if hasattr(self, "preview_canvas"):
+            self._draw_preview()
+
     def _solid_button(
         self,
         parent,
@@ -703,7 +887,13 @@ class PhotoLayoutTool(tk.Tk):
     ):
         width = max(86, len(text) * 18 + padx * 2)
         height = max(38, pady * 2 + 24)
-        return RoundedButton(
+        if bg == SUCCESS:
+            role = "success"
+        elif bg == NEUTRAL:
+            role = "neutral"
+        else:
+            role = "primary"
+        button = RoundedButton(
             parent,
             text=text,
             command=command,
@@ -715,6 +905,9 @@ class PhotoLayoutTool(tk.Tk):
             height=height,
             radius=10,
         )
+        button.theme_role = role
+        self.solid_buttons.append(button)
+        return button
 
     def _switch(self, parent, variable, command):
         canvas = tk.Canvas(parent, width=52, height=26, bg=PANEL_BG, highlightthickness=0, cursor="hand2")
@@ -740,10 +933,11 @@ class PhotoLayoutTool(tk.Tk):
         canvas = self.switches.get(str(variable))
         if not canvas:
             return
+        canvas.configure(bg=PANEL_BG)
         canvas.delete("all")
         enabled = variable.get()
-        track = PRIMARY if enabled else "#E2E8F0"
-        outline = "#A78BFA" if enabled else "#CBD5E1"
+        track = PRIMARY if enabled else NEUTRAL_HOVER
+        outline = UPLOAD_BORDER if enabled else BORDER
         knob = "#FFFFFF"
         self._canvas_round_rect(canvas, 1, 2, 51, 24, 7, fill=track, outline=outline, width=1)
         x = 29 if enabled else 4
@@ -903,11 +1097,17 @@ class PhotoLayoutTool(tk.Tk):
         self._refresh_toggle_buttons()
         self._update_preview()
 
+    def _select_appearance(self, name):
+        self.appearance_mode.set(name)
+        self._apply_theme(force=True)
+
     def _refresh_toggle_buttons(self):
         for name, button in self.id_buttons.items():
             self._style_pill(button, selected=name == self.id_size_name.get())
         for name, button in self.paper_buttons.items():
             self._style_pill(button, selected=name == self.paper_name.get())
+        for name, button in self.theme_buttons.items():
+            self._style_pill(button, selected=name == self.appearance_mode.get())
         id_state = tk.NORMAL if self.id_size_name.get() == "自定义" else tk.DISABLED
         self.custom_id_w_entry.configure(state=id_state)
         self.custom_id_h_entry.configure(state=id_state)
@@ -918,9 +1118,14 @@ class PhotoLayoutTool(tk.Tk):
 
     def _style_pill(self, button, selected=False):
         if selected:
-            button.configure(bg="#E0F2FE", fg="#075985", activebackground="#BAE6FD", activeforeground="#075985")
+            button.configure(
+                bg=CHIP_ACTIVE_BG,
+                fg=CHIP_ACTIVE_FG,
+                activebackground=CHIP_ACTIVE_BG,
+                activeforeground=CHIP_ACTIVE_FG,
+            )
         else:
-            button.configure(bg=NEUTRAL, fg="#334155", activebackground=NEUTRAL_HOVER, activeforeground="#0F172A")
+            button.configure(bg=NEUTRAL, fg=TEXT, activebackground=NEUTRAL_HOVER, activeforeground=TEXT)
 
     def _set_status(self, text):
         if hasattr(self, "status_label"):
@@ -1143,7 +1348,7 @@ class PhotoLayoutTool(tk.Tk):
                 canvas_w / 2,
                 canvas_h / 2,
                 text="上传证件照后显示排版预览",
-                fill="#94A3B8",
+                fill=MUTED,
                 font=("Microsoft YaHei UI", 14),
             )
             return
@@ -1484,7 +1689,8 @@ class PhotoLayoutTool(tk.Tk):
         if self.is_topmost.get():
             self.topmost_button.set_colors("#EF4444", "#FFFFFF", "#DC2626", "#FFFFFF")
         else:
-            self.topmost_button.set_colors(NEUTRAL, "#334155", NEUTRAL_HOVER, "#0F172A")
+            self.topmost_button.set_colors(NEUTRAL, TEXT, NEUTRAL_HOVER, TEXT)
+        self.topmost_button.set_surface(PANEL_BG)
 
 
 if __name__ == "__main__":
